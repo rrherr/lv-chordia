@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### rrherr fork
+- `recognize()` / `probabilities()` / `decode()`: decoded mono audio in, a
+  vocabulary as a list of chord names, and an optional beat grid that
+  restricts chord changes to beats (downbeats cheapest). The path API is
+  byte-identical to upstream; the decoder is pinned to outputs captured from
+  unmodified upstream code.
+- `device="mps"` is honoured again (float32, within about 1e-6 of CPU).
+- Logging instead of printing; URL download moved into the CLI.
+- Checkpoints ship as package data (`lv_chordia/cache_data/`); a missing one
+  raises. The sdist now includes `config/checkpoints.toml`, without which a
+  wheel built from it failed at import.
+- Removed the vendored `mir/` toolkit, `extractors/cqt.py`, ChordNet's
+  training code and the training data files; dropped h5py, pretty_midi,
+  pydub and joblib; torch floor lowered to 2.4.
+
 ### Changed
 - Explicit device requests now validate CPU and CUDA (including `cuda:N`)
   availability before loading; a requested CUDA index reaches model and

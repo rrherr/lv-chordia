@@ -5,10 +5,57 @@
 [![Test](https://github.com/openmirlab/lv-chordia/actions/workflows/test.yml/badge.svg)](https://github.com/openmirlab/lv-chordia/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.13+-ee4c2c.svg)](https://pytorch.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.4+-ee4c2c.svg)](https://pytorch.org/)
 [![PyPI version](https://badge.fury.io/py/lv-chordia.svg)](https://pypi.org/project/lv-chordia/)
 
 A high-quality chord recognition system capable of transcribing complex chord progressions from audio recordings using deep learning.
+
+---
+
+## This fork (rrherr/lv-chordia)
+
+A fork of [openmirlab/lv-chordia](https://github.com/openmirlab/lv-chordia)
+made for bluegrass-karaoke's `bgk chords`. The
+models, weights and decoding math are unchanged: the CLI's output on the
+regression clip is byte-identical to upstream's, and the decoder is pinned to
+outputs captured from unmodified upstream code (`tests/test_recognize.py`).
+What differs:
+
+- **Decoded audio in, vocabulary list and beat grid optional.**
+  `recognize(ensemble, audio, chords, beats=None, *, downbeats=True)` takes
+  mono float audio at `SAMPLE_RATE` (22.05 kHz) instead of a path, a
+  vocabulary as a list of chord names on root C (the decoder transposes them
+  to all twelve roots and always adds `N`), and an optional beat grid of
+  `(time, position-in-bar)` rows -- what beat_this writes -- so chords change
+  only on beats, cheapest on downbeats. It is `probabilities()` followed by
+  `decode()`.
+- **Apple Silicon.** `device="mps"` works (float32 output within about 1e-6
+  of CPU). `"auto"` still means CUDA if available, else CPU.
+- **Quiet.** Progress goes through `logging` (`lv_chordia.*` loggers); the
+  CLI prints it to stderr as before.
+- **Local files only in the library.** The CLI still downloads URLs.
+- **Weights as package data** in `lv_chordia/cache_data/`, found with
+  `importlib.resources` (upstream installed them under `<prefix>/share/`).
+  A missing checkpoint raises instead of silently running random weights.
+- **Slim.** Only the inference path remains; h5py, pretty_midi, pydub and
+  joblib are no longer dependencies, and torch's floor is 2.4.
+
+Install from git (PyPI's `lv-chordia` is upstream):
+
+```bash
+uv add "lv-chordia @ git+https://github.com/rrherr/lv-chordia"
+```
+
+```python
+import librosa, torch
+from lv_chordia import SAMPLE_RATE, load_ensemble, recognize
+
+ensemble = load_ensemble(device=torch.device("mps"))
+audio, _ = librosa.load("song.mp3", sr=SAMPLE_RATE, mono=True)
+beats = [(0.52, 1), (1.04, 2), (1.56, 1), (2.08, 2)]  # (seconds, position in bar)
+chords = recognize(ensemble, audio, ["C:maj", "C:min", "C:7"], beats)
+# [{"start_time": 0.0, "end_time": 0.52, "chord": "N"}, {"start_time": 0.52, ...}, ...]
+```
 
 ---
 
@@ -95,10 +142,10 @@ tooling.
 ### Model weights: bundled by design (documented size-based exception)
 
 Unlike most other openmirlab inference packages, lv-chordia does **not**
-download its weights at runtime. The pre-trained ensemble (`cache_data/*.sdict`,
+download its weights at runtime. The pre-trained ensemble (`lv_chordia/cache_data/*.sdict`,
 5 files, ~28MB total -- 5.5MB each) is committed directly to this git
-repository and shipped inside the built wheel/sdist via `pyproject.toml`'s
-`shared-data`/`sdist` configuration, so inference runs fully offline
+repository and shipped inside the built wheel/sdist as package data
+(`lv_chordia/cache_data/`), so inference runs fully offline
 immediately after `pip install lv-chordia`, with no first-run download step.
 
 This is a deliberate, documented exception to the org's default weights
@@ -217,12 +264,6 @@ results = chord_recognition(
     chord_dict_name="submission"
 )
 
-# URL (auto-download)
-results = chord_recognition(
-    audio_path="https://example.com/song.mp3",
-    chord_dict_name="submission"
-)
-
 # Save to file if needed
 import json
 with open("output_chords.json", "w") as f:
@@ -231,19 +272,11 @@ with open("output_chords.json", "w") as f:
 
 ### URL Audio Support
 
-lv-chordia automatically downloads and processes audio from URLs:
+The `lv-chordia` CLI downloads audio from URLs to a temporary file, runs on
+it, and deletes it. The Python API reads local files only (this fork):
 
-```python
-from lv_chordia.chord_recognition import chord_recognition
-
-# Process audio directly from URL
-results = chord_recognition("https://example.com/song.mp3")
-
-# Works with any supported audio format
-results = chord_recognition("https://example.com/audio.wav")
-results = chord_recognition("https://example.com/track.flac")
-
-# The temporary file is automatically cleaned up after processing
+```bash
+lv-chordia https://example.com/song.mp3
 ```
 
 **Supported URL schemes**: HTTP, HTTPS, FTP
@@ -345,13 +378,9 @@ Audio File
 All core dependencies are needed by the inference path (`lv_chordia.chord_recognition` / the CLI); none are training/eval-only.
 
 ```
-torch>=2.13.0         # Deep learning framework
+torch>=2.4            # Deep learning framework
 librosa>=0.11.0       # Audio loading and CQT feature extraction
 numpy>=2.2.6          # Numerical computing
-h5py>=3.16.0          # HDF5 file format (model checkpoint storage backend)
-pydub>=0.23.1         # Audio file manipulation
-pretty_midi>=0.2.9    # MIDI file handling
-joblib>=1.5.3         # Parallel computing
 ```
 
 ```bash
@@ -641,9 +670,8 @@ with LVChordiaSession(chord_dict_name="submission", device="cpu") as session:
     jazz = session.infer("song.wav", "full")      # per-call chord dict, still no reload
 ```
 
-`load()` resolves the device (same `'cpu'`/`'cuda'`/`'cuda:N'`/`'auto'`
-contract as `chord_recognition()`'s `device` parameter -- `'mps'` is rejected
-outright, org canon art. 4b) and loads the
+`load()` resolves the device (same `'cpu'`/`'cuda'`/`'cuda:N'`/`'mps'`/`'auto'`
+contract as `chord_recognition()`'s `device` parameter) and loads the
 ensemble exactly once; `release()` drops the model references. The chord
 dictionary only drives the per-call HMM decoder, never the ensemble load,
 so one loaded session serves any vocabulary.

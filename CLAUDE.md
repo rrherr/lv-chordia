@@ -2,10 +2,17 @@
 
 Guidance for Claude Code (or any agent) working in this repository.
 
+**This is rrherr's fork of openmirlab/lv-chordia**, made for
+bluegrass-karaoke's `bgk chords`; README's "This fork" section lists what
+differs. Where the upstream notes below mention org canon or org decisions,
+they describe upstream's reasoning, not rules this fork follows (for
+example, this fork runs on MPS).
+
 ## What this package is
 
-`lv-chordia` is an **inference-only** chord recognition package: given an
-audio file (or URL), it returns a time-aligned chord sequence as JSON. It
+`lv-chordia` is an **inference-only** chord recognition package: given
+decoded audio or an audio file, it returns a time-aligned chord sequence as
+JSON. It
 packages the pre-trained ensemble models from the ISMIR 2019 paper
 "Large-Vocabulary Chord Transcription via Chord Structure Decomposition".
 
@@ -18,9 +25,10 @@ doesn't belong in this package.
 
 Unlike most other openmirlab inference packages, this repo does **not**
 download its weights at runtime. The pre-trained ensemble
-(`cache_data/*.sdict`, 5 files, ~28MB total, 5.5MB each) is committed
+(`lv_chordia/cache_data/*.sdict`, 5 files, ~28MB total, 5.5MB each) is committed
 directly to git and shipped inside the built wheel/sdist via
-`pyproject.toml`'s `shared-data`/`sdist` config -- this is the package's
+`pyproject.toml`'s wheel/sdist includes as package data, found at runtime
+through `importlib.resources` (`config.CHECKPOINT_DIR`) -- this is the package's
 pre-existing, original design, not a recent regression.
 
 This is a **deliberate, documented exception** to the org's default weights
@@ -34,7 +42,7 @@ instead of size, but the org-level precedent -- bundling is fine when the
 weight is genuinely small -- is the same one applied here). This is not a
 defect to migrate away from; do not treat it as a TODO.
 
-**Still do not delete or otherwise touch `cache_data/*.sdict` or any
+**Still do not delete or otherwise touch `lv_chordia/cache_data/*.sdict` or any
 git-tracked weight file casually** -- if a future change genuinely needs to
 move to runtime download (e.g. the ensemble grows well past this size, or
 the org tightens the exception threshold), build the downloader, host the
@@ -46,78 +54,46 @@ to clear.
 
 ## Entry points and the live import graph
 
-- CLI: `lv_chordia/cli.py` (`lv-chordia` console script) -> `chord_recognition()`
-- Python API (one-shot): `lv_chordia.chord_recognition.chord_recognition()` /
-  `chord_recognition_json()` (alias) -- loads a throwaway five-model ensemble
-  per call.
+- CLI: `lv_chordia/cli.py` (`lv-chordia` console script) -> `chord_recognition()`.
+  The CLI alone handles URLs (`audio_utils.py`, imported lazily).
+- Python API (arrays): `recognize(ensemble, audio, chords, beats=None, *, downbeats=True)`
+  = `probabilities()` (CQT + five networks, averaged) then `decode()` (the
+  HMM over a vocabulary list, optionally on a beat grid). `load_ensemble()`
+  loads the five checkpoints once.
+- Python API (one-shot): `chord_recognition()` / `chord_recognition_json()`
+  (alias) -- loads a throwaway ensemble per call; `recognize_with_ensemble()`
+  decodes the file with librosa and calls `recognize()` with
+  `chord_list(chord_dict_name)`.
 - Python API (resident): `lv_chordia.LVChordiaSession` (`session.py`) -- loads
-  the ensemble once at `load()` for a resolved device and reuses it across
-  `infer()` calls (made a real load-once session on 2026-07-19; it previously
-  deferred to the per-call reload). The chord dictionary is a per-call choice:
-  it only drives the HMM decoder built in `recognize_with_ensemble()`, never
-  the ensemble load. `chord_recognition()` itself now composes
-  `load_ensemble()` + `recognize_with_ensemble()` -- the split lives in
-  `chord_recognition.py` and is the one owner of the pipeline math.
+  the ensemble once at `load()` and reuses it across `infer()` calls; the
+  chord dictionary is a per-call choice that only drives the decoder.
 
-`chord_recognition()` transitively imports:
-`chordnet_ismir_naive.py` (model definitions), `mir.nn.network.NetworkInterface`
-(checkpoint loading + inference), `extractors.cqt` / `extractors.xhmm_ismir`
-(feature extraction + HMM decoding), `mir.io` / `mir.DataEntry`,
-`settings.py`, `audio_utils.py` (local file + URL handling).
+The whole package is the inference path: `chord_recognition.py` ->
+`chordnet_ismir_naive.py` (model) -> `network.py` (device placement,
+checkpoint loading), `extractors/xhmm_ismir.py` (decoder) ->
+`complex_chord.py` (chord encoding), plus `config/`, `settings.py`,
+`device_utils.py`, `session.py`, `cli.py`, `audio_utils.py`. The upstream
+`mir/` toolkit, `extractors/cqt.py` and ChordNet's training code were
+removed in this fork; don't reintroduce training or dataset tooling.
 
-Before adding, removing, or "cleaning up" any file, trace whether it's
-reachable from this chain. A file not imported by anything on this chain is
-dead code -- but verify with `grep -rn` for every import spelling (relative
-and absolute) before deleting; a prior survey once misclassified a live file
-as dead. (The `lv_chordia/io_new/` package used to have one file,
-`chordlab_io.py`, imported here, but the import was itself dead -- the
-class was never actually called. Confirmed empirically by removing the
-import and re-running the accuracy-regression test before deleting the
-file; `io_new/` no longer exists.)
+## The upstream `mir/` subpackage
 
-## The `mir/` subpackage
-
-`lv_chordia/mir/` is a vendored, general-purpose MIR toolkit (has its own
-`README.MD` and `requirements.txt`) that predates this package. Only a
-fraction of it is used by the live inference path
-(`mir.io`, `mir.data_file.DataEntry`, `mir.nn.network`, `mir.nn.data_storage`,
-`mir.nn.data_decorator`, `mir.nn.data_provider`, `mir.extractors.ExtractorBase`).
-It is treated as a lower-churn vendored dependency rather than lv-chordia's
-own code: don't prune it opportunistically in an unrelated change. (A few
-files under `mir/extractors/` -- `misc.py`, `librosa_extractor.py`,
-`vamp_extractor.py` -- are themselves unreachable dead code left over from
-training tooling, but were left in place during the 2026-07 inference-only
-cleanup rather than touching the vendored subpackage; flagged here for a
-future, dedicated pass.)
-
-`mir/nn/train.py` was renamed to `mir/nn/network.py` on 2026-07-19: despite
-its old name it held genuinely load-bearing inference code
-(`NetworkBehavior`, `NetworkInterface.inference()`/`inference_function()`),
-mixed with training-only dead weight (`loss()`/`evaluation()` abstract
-stubs never called anywhere, the unreachable `is_training=True` branch of
-`init_settings` -- every call site in this package passes `is_training`
-implicitly false now, and `get_optimizer()`/the checkpoint's `opt` restore,
-which nothing downstream ever read). The dead pieces were deleted and the
-file renamed once its remaining content was honestly inference-only; the
-CSV cross-validation fold manifests in `data/train0{0-4}.csv` (unreferenced
-by any code, README, or CI) were deleted the same day. `chordnet_ismir_naive.py`'s
-`ChordNet.loss()`/`ChordNetCNN.loss()`/`ReweightedLoss` are the same
-category of training-only dead weight (verified: `chord_recognition.py`
-always constructs `ChordNet(None, ...)`, so `loss_reweight` is never even
-set) but were left untouched -- out of scope for this pass, flagged for a
-future, dedicated one.
+Gone in this fork. `NetworkBehavior`/`NetworkInterface` (the only parts the
+inference path used) live in `lv_chordia/network.py`; the CQT that
+`extractors/cqt.py`'s `CQTV2` computed through a `DataEntry` is
+`chord_recognition.cqt()`, with identical parameters.
 
 ## Device handling -- do not touch casually
 
 GPU/CPU selection defaults to automatic: `NetworkBehavior.__init__`
-(`mir/nn/network.py`) checks `torch.cuda.device_count() > 0` and moves the
+(`network.py`) checks `torch.cuda.device_count() > 0` and moves the
 model to `.cuda()` if so, and this default **must stay untouched** -- GPU
 support is a hard requirement of this package.
 
 As of 2026-07, that default has an explicit, opt-in override:
 `chord_recognition(..., device=...)` / `lv-chordia --device ...` accept
-`'cpu'`, `'cuda'`, `'cuda:N'`, or `'auto'` (`'mps'` is rejected outright --
-Apple MLX/MPS backends are permanently out of scope, org canon art. 4b),
+`'cpu'`, `'cuda'`, `'cuda:N'`, `'mps'` (this fork; RuntimeError if MPS is
+unavailable), or `'auto'` (never MPS),
 resolved by `device_utils.resolve_device()` and threaded through
 `NetworkBehavior`/`ChordNet`/`ChordNetCNN`. Passing nothing (`device=None`,
 no `--device` flag) is byte-for-byte the same auto-detect as before this
@@ -133,14 +109,14 @@ individual model/tensor operations and must not mutate global CUDA state.
 ## Accuracy rule
 
 Any change touching the inference path (`cli.py`, `chord_recognition.py`,
-`chordnet_ismir_naive.py`, `mir/nn/*`, `extractors/cqt.py`,
-`extractors/xhmm_ismir.py`, `settings.py`, `audio_utils.py`,
-`complex_chord.py`) must produce byte-identical chord recognition JSON
-output on the regression fixture before and after. Verify
-with:
+`chordnet_ismir_naive.py`, `network.py`, `extractors/xhmm_ismir.py`,
+`settings.py`, `audio_utils.py`, `complex_chord.py`) must produce
+byte-identical chord recognition JSON output on the regression fixture
+before and after, and keep the decoder goldens (captured from unmodified
+upstream code, see `tests/test_recognize.py`) passing. Verify with:
 
 ```bash
-pytest tests/test_chord_recognition_regression.py -v
+pytest tests/test_chord_recognition_regression.py tests/test_recognize.py -v
 ```
 
 This compares the CLI's output on the tracked `test_data/yellow.wav` against
@@ -156,7 +132,7 @@ uv sync --extra dev   # or: pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-No network access or GPU is required; model weights (`cache_data/*.sdict`)
+No network access or GPU is required; model weights (`lv_chordia/cache_data/*.sdict`)
 and the test audio (`test_data/yellow.wav`) are tracked in the repo.
 
 ## Versioning
