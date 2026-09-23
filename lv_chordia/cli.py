@@ -58,7 +58,7 @@ Examples:
         "--device",
         dest="device",
         default=None,
-        help="Device override: 'cpu', 'cuda', 'cuda:N', or 'auto'. "
+        help="Device override: 'cpu', 'cuda', 'cuda:N', 'mps', or 'auto'. "
              "Default: unset, which auto-detects GPU the same way this tool "
              "always has."
     )

@@ -56,20 +56,18 @@ def test_device_cuda_index_when_no_cuda_visible_raises(monkeypatch):
         resolve_use_gpu("cuda:0")
 
 
-def test_device_mps_rejected_outright_even_when_available(monkeypatch):
-    """Apple MLX/MPS backends are permanently out of scope for this project
-    (org canon art. 4b). device='mps' must raise ValueError unconditionally
-    -- even when MPS is actually available -- not RuntimeError only when
-    unavailable (the old, pre-removal behavior).
-    """
+def test_device_mps_resolves_when_available(monkeypatch):
+    """The rrherr fork runs on Apple Silicon: an explicit 'mps' request is honoured
+    (upstream rejected it unconditionally)."""
     monkeypatch.setattr(torch.backends.mps, "is_available", lambda: True)
-    with pytest.raises(ValueError, match="mps"):
-        resolve_device("mps")
+    assert resolve_device("mps") == torch.device("mps")
+    assert resolve_use_gpu("mps") is False  # the GPU flag means CUDA; the device carries MPS
 
 
-def test_device_mps_rejected_outright_when_unavailable_too(monkeypatch):
+def test_device_mps_raises_when_unavailable(monkeypatch):
+    """Like an unavailable 'cuda', an unavailable 'mps' fails loudly instead of falling back."""
     monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
-    with pytest.raises(ValueError, match="mps"):
+    with pytest.raises(RuntimeError, match="mps"):
         resolve_device("mps")
 
 

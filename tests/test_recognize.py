@@ -147,3 +147,13 @@ def test_beat_frames_blocks_changes_between_beats_and_ranks_downbeats():
     assert [codes[10], codes[20], codes[30], codes[40], codes[50]] == [2, 4, 3, 4, 2]
     beats_only = beat_frames(beats, 60, frame, downbeats=False)
     assert [beats_only[i] for i in (10, 20, 30, 40, 50)] == [1] * 5
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
+def test_mps_probabilities_match_cpu(yellow_probs, yellow_audio):
+    """On Apple Silicon the float32 ensemble must agree with CPU: probabilities within 1e-4,
+    and the decoded chords identical on the reference clip."""
+    mps_probs = probabilities(load_ensemble(False, device=torch.device("mps")), yellow_audio)
+    for cpu_head, mps_head in zip(yellow_probs, mps_probs):
+        np.testing.assert_allclose(mps_head, cpu_head, atol=1e-4)
+    assert decode(mps_probs, chord_list("submission")) == decode(yellow_probs, chord_list("submission"))

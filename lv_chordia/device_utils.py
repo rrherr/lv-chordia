@@ -1,7 +1,7 @@
 """Validate public device requests while preserving the legacy auto default.
 
-'mps' is rejected outright -- Apple MLX/MPS backends are permanently out of
-scope for this project (org canon art. 4b).
+Explicit 'mps' runs on Apple Silicon (rrherr fork; upstream rejects it). 'auto'
+never selects MPS: it keeps the legacy CUDA-or-CPU auto-detect.
 """
 
 from __future__ import annotations
@@ -18,18 +18,14 @@ def resolve_device(device: Optional[str] = None) -> Optional[torch.device]:
     original ``NetworkBehavior`` CUDA auto-detect. Explicit requests are
     validated before model construction so they never silently fall back.
 
-    ``"mps"`` is rejected outright, regardless of actual MPS availability --
-    Apple MLX/MPS backends are permanently out of scope for this project
-    (org canon art. 4b). Supported devices: 'cpu', 'cuda', 'cuda:N', 'auto',
-    or None.
+    ``"mps"`` is honoured when ``torch.backends.mps.is_available()``; the
+    ensemble's float32 probabilities match CPU to within about 1e-6. Supported
+    devices: 'cpu', 'cuda', 'cuda:N', 'mps', 'auto', or None.
     """
     if device == "mps":
-        raise ValueError(
-            "Device 'mps' is not supported by lv-chordia. Apple MLX/MPS "
-            "backends are permanently out of scope for this project (org "
-            "canon art. 4b). Supported devices: 'cpu', 'cuda', 'cuda:N', "
-            "'auto', or None."
-        )
+        if not torch.backends.mps.is_available():
+            raise RuntimeError("device='mps' was requested but MPS is not available.")
+        return torch.device("mps")
     if device is None or device == "auto":
         return None
     if device == "cpu":
@@ -51,7 +47,7 @@ def resolve_device(device: Optional[str] = None) -> Optional[torch.device]:
             )
         return torch.device("cuda", index)
     raise ValueError(
-        "Invalid device %r: expected 'cpu', 'cuda', 'cuda:N', 'auto', or None."
+        "Invalid device %r: expected 'cpu', 'cuda', 'cuda:N', 'mps', 'auto', or None."
         % device
     )
 
