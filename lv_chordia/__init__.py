@@ -26,11 +26,27 @@ from . import extractors
 from . import mir
 
 # Import the main function for easy access
-from .chord_recognition import chord_recognition
+from .chord_recognition import (
+    FRAME_SECONDS,
+    SAMPLE_RATE,
+    chord_list,
+    chord_recognition,
+    decode,
+    load_ensemble,
+    probabilities,
+    recognize,
+)
 from .session import LVChordiaSession
 
 __all__ = [
     "chord_recognition",
+    "recognize",
+    "probabilities",
+    "decode",
+    "load_ensemble",
+    "chord_list",
+    "SAMPLE_RATE",
+    "FRAME_SECONDS",
     "LVChordiaSession",
     "extractors",
     "mir",
