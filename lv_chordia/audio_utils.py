@@ -10,12 +10,15 @@ librosa's job downstream in extractors/cqt.py.
 Reads: nothing (stdlib only).
 """
 
+import logging
 import os
 import tempfile
 import urllib.request
 import urllib.parse
 from pathlib import Path
 from typing import Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 def is_url(path: str) -> bool:
@@ -83,9 +86,9 @@ def download_audio(url: str, output_dir: Optional[str] = None) -> str:
         output_path = os.path.join(temp_dir, filename)
 
     # Download the file
-    print(f"Downloading audio from: {url}")
+    logger.info("Downloading audio from: %s", url)
     urllib.request.urlretrieve(url, output_path)
-    print(f"Downloaded to: {output_path}")
+    logger.info("Downloaded to: %s", output_path)
 
     return output_path
 
@@ -138,4 +141,4 @@ def cleanup_temp_audio(audio_path: str) -> None:
                 pass  # Directory not empty or other error
     except Exception as e:
         # Don't raise errors during cleanup
-        print(f"Warning: Could not clean up temporary file: {e}")
+        logger.warning("Could not clean up temporary file: %s", e)

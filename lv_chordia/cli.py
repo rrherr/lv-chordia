@@ -2,14 +2,16 @@
 Command-line interface for lv-chordia: parses arguments and prints chord JSON.
 
 The public entry point (`lv-chordia` console script / `python -m lv_chordia.cli`).
-Validates the input path (or URL), delegates all recognition work to
-chord_recognition(), and prints the result as JSON to stdout. Holds no
+Validates the input path (or downloads the URL to a temp file), delegates all
+recognition work to chord_recognition(), and prints the result as JSON to
+stdout; the library's progress log goes to stderr. Holds no
 recognition logic itself -- that lives in chord_recognition.py.
 
 Reads: chord_recognition.py, audio_utils.py
 """
 
 import argparse
+import logging
 import sys
 import json
 from pathlib import Path
@@ -65,17 +67,23 @@ Examples:
 
     args = parser.parse_args()
 
-    # Import here to check if it's a URL
-    from .audio_utils import is_url
+    # URLs are a CLI convenience: the library itself only reads local files.
+    from .audio_utils import cleanup_temp_audio, get_audio_path, is_url
 
     # Validate input file exists (skip for URLs)
     if not is_url(args.audio_file) and not Path(args.audio_file).exists():
         print(f"Error: Audio file '{args.audio_file}' not found.", file=sys.stderr)
         sys.exit(1)
 
+    logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
     try:
-        # Perform chord recognition and output JSON
-        results = chord_recognition(args.audio_file, args.chord_dict, device=args.device)
+        audio_path, is_temp = get_audio_path(args.audio_file)
+        try:
+            # Perform chord recognition and output JSON
+            results = chord_recognition(audio_path, args.chord_dict, device=args.device)
+        finally:
+            if is_temp:
+                cleanup_temp_audio(audio_path)
         print(json.dumps(results, indent=2))
     except Exception as e:
         print(f"Error during chord recognition: {e}", file=sys.stderr)

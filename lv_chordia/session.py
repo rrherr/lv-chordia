@@ -77,7 +77,7 @@ class LVChordiaSession:
         Run chord recognition on one audio file using the preloaded ensemble.
 
         Args:
-            audio_path: Path to the input audio file or URL.
+            audio_path: Path to a local audio file.
             chord_dict_name: Per-call chord-dictionary override; None uses the
                 session's default. Only the HMM decoder depends on this -- no
                 model weights are (re)loaded whichever dictionary is chosen.
