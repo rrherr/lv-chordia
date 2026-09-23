@@ -14,9 +14,8 @@ A high-quality chord recognition system capable of transcribing complex chord pr
 
 ## This fork (rrherr/lv-chordia)
 
-A fork of [openmirlab/lv-chordia](https://github.com/openmirlab/lv-chordia)
-made for bluegrass-karaoke's `bgk chords`. The
-models, weights and decoding math are unchanged: the CLI's output on the
+A fork of [openmirlab/lv-chordia](https://github.com/openmirlab/lv-chordia).
+The models, weights and decoding math are unchanged: the CLI's output on the
 regression clip is byte-identical to upstream's, and the decoder is pinned to
 outputs captured from unmodified upstream code (`tests/test_recognize.py`).
 What differs:

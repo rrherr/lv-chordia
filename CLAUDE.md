@@ -2,8 +2,7 @@
 
 Guidance for Claude Code (or any agent) working in this repository.
 
-**This is rrherr's fork of openmirlab/lv-chordia**, made for
-bluegrass-karaoke's `bgk chords`; README's "This fork" section lists what
+**This is rrherr's fork of openmirlab/lv-chordia**; README's "This fork" section lists what
 differs. Where the upstream notes below mention org canon or org decisions,
 they describe upstream's reasoning, not rules this fork follows (for
 example, this fork runs on MPS).
