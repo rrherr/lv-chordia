@@ -38,7 +38,7 @@ class NetworkBehavior(nn.Module):
 class NetworkInterface:
 
     def __init__(self, net, save_name, load_checkpoint=False, load_path='cache_data'):
-        from ..common import CACHE_DATA_PATH
+        from ...config import CHECKPOINT_DIR as CACHE_DATA_PATH
         self.net=net
         if(not isinstance(self.net,NetworkBehavior)):
             raise Exception('Invalid network type')
@@ -54,6 +54,9 @@ class NetworkInterface:
         self.counter=0
         self.best_val_loss=np.inf
         self.best_epoch_dist=0
+        if(not os.path.exists(save_path) and not (load_checkpoint and os.path.exists(cp_save_path))):
+            # Upstream silently kept the random initial weights here.
+            raise FileNotFoundError('checkpoint not found: %s'%save_path)
         if(os.path.exists(save_path)):
             state_dict=torch.load(save_path,map_location=self.net.device)
             # The following codes are for torch 4.0 compatibility

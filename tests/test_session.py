@@ -167,9 +167,8 @@ def test_checkpoint_path_resolver_and_cache_info_do_not_materialize_missing_root
     import importlib
 
     config = importlib.import_module("lv_chordia.config")
-    common = importlib.import_module("lv_chordia.mir.common")
     missing_root = tmp_path / "not-created"
-    monkeypatch.setattr(common, "CACHE_DATA_PATH", str(missing_root))
+    monkeypatch.setattr(config, "CHECKPOINT_DIR", missing_root)
 
     root, entries = config.resolve_checkpoint_paths()
     assert root == missing_root
@@ -180,3 +179,21 @@ def test_checkpoint_path_resolver_and_cache_info_do_not_materialize_missing_root
     info = LVChordiaSession().cache_info()
     assert info["path"] == str(missing_root)
     assert not missing_root.exists()
+
+
+def test_checkpoints_are_package_data_and_a_missing_one_raises():
+    """The ensemble loads from lv_chordia/cache_data (package data, no sys.prefix lookup), and a
+    missing checkpoint raises instead of silently leaving the network's random initial weights."""
+    import importlib
+
+    from lv_chordia.chordnet_ismir_naive import ChordNet
+    from lv_chordia.mir.nn.network import NetworkInterface
+
+    config = importlib.import_module("lv_chordia.config")
+    package_dir = Path(importlib.import_module("lv_chordia").__file__).parent
+    assert config.CHECKPOINT_DIR == package_dir / "cache_data"
+    root, entries = config.resolve_checkpoint_paths()
+    assert all(entry["cached"] for entry in entries)
+
+    with pytest.raises(FileNotFoundError, match="no-such-checkpoint"):
+        NetworkInterface(ChordNet(None, use_gpu=False), "no-such-checkpoint")

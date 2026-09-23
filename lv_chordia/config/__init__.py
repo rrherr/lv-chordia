@@ -1,4 +1,7 @@
-"""Runtime metadata and read-only resolver for bundled checkpoints."""
+"""Runtime metadata and read-only resolver for bundled checkpoints.
+
+The five ensemble checkpoints ship as package data in lv_chordia/cache_data/.
+"""
 
 import importlib.resources
 from pathlib import Path
@@ -6,6 +9,10 @@ try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
+
+
+#: Where the bundled checkpoints live: package data, found through importlib.resources.
+CHECKPOINT_DIR = Path(str(importlib.resources.files("lv_chordia").joinpath("cache_data")))
 
 
 def checkpoint_entries() -> tuple[dict, ...]:
@@ -23,9 +30,7 @@ def model_names() -> tuple[str, ...]:
 
 def resolve_checkpoint_paths() -> tuple[Path, tuple[dict, ...]]:
     """Resolve bundled checkpoint paths without downloading or creating paths."""
-    from ..mir.common import CACHE_DATA_PATH
-
-    root = Path(CACHE_DATA_PATH)
+    root = CHECKPOINT_DIR
     entries = tuple(
         {**entry, "path": root / entry["name"], "cached": (root / entry["name"]).is_file()}
         for entry in checkpoint_entries()
