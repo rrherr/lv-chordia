@@ -26,8 +26,8 @@ def test_public_submodules_present():
 
     assert set(lv_chordia.__all__) >= {
         "chord_recognition",
-        "extractors",
-        "mir",
+        "recognize",
+        "load_ensemble",
         "__version__",
     }
     # __all__ must no longer advertise the removed training-only `datasets` module.
@@ -49,6 +49,9 @@ def test_datasets_module_removed():
         "lv_chordia.test_for_all",
         "lv_chordia.storage_creation",
         "lv_chordia.train_eval_test_split",
+        # The vendored mir toolkit and the DataEntry-based CQT extractor (rrherr fork).
+        "lv_chordia.mir",
+        "lv_chordia.extractors.cqt",
     ],
 )
 def test_training_eval_scripts_removed(removed_module):
@@ -67,3 +70,18 @@ def test_chord_recognition_function_importable():
 
     assert callable(chord_recognition)
     assert callable(chord_recognition_json)
+
+
+def test_inference_path_needs_no_training_or_io_dependencies():
+    """The rrherr fork dropped h5py, pretty_midi, pydub and joblib: importing the package and
+    its CLI must not pull them (or the URL downloader) in."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, lv_chordia, lv_chordia.cli; "
+        "print(sorted(m for m in ('h5py', 'pretty_midi', 'pydub', 'joblib', 'lv_chordia.audio_utils') "
+        "if m in sys.modules))"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "[]"

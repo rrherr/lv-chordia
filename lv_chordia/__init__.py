@@ -9,7 +9,7 @@ chord vocabularies including complex jazz chords. Inference-only: no
 training/eval module is imported here, and import errors are not swallowed
 (see chord_recognition.py for the actual entry point chain).
 
-Reads: chord_recognition.py, extractors/__init__.py, mir/__init__.py
+Reads: chord_recognition.py, session.py
 """
 
 __version__ = "1.1.0"
@@ -22,8 +22,6 @@ __url__ = "https://github.com/music-x-lab/ISMIR2019-Large-Vocabulary-Chord-Recog
 # training/eval modules (e.g. the former `datasets` module) are imported here,
 # and import errors are not swallowed -- a broken dependency should fail loudly.
 from . import chord_recognition
-from . import extractors
-from . import mir
 
 # Import the main function for easy access
 from .chord_recognition import (
@@ -48,8 +46,6 @@ __all__ = [
     "SAMPLE_RATE",
     "FRAME_SECONDS",
     "LVChordiaSession",
-    "extractors",
-    "mir",
     "__version__",
     "__author__",
     "__maintainer__",

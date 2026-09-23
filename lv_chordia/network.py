@@ -1,7 +1,11 @@
-import torch.nn as nn
-import torch.nn.functional as F
+"""
+NetworkBehavior (device placement for a torch module) and NetworkInterface
+(loads one bundled checkpoint into it and runs inference under no_grad).
+
+Reads: config/__init__.py
+"""
 import torch
-from ..common import WORKING_PATH
+import torch.nn as nn
 import os
 import numpy as np
 from typing import Optional
@@ -37,8 +41,8 @@ class NetworkBehavior(nn.Module):
 
 class NetworkInterface:
 
-    def __init__(self, net, save_name, load_checkpoint=False, load_path='cache_data'):
-        from ...config import CHECKPOINT_DIR as CACHE_DATA_PATH
+    def __init__(self, net, save_name, load_checkpoint=False):
+        from .config import CHECKPOINT_DIR
         self.net=net
         if(not isinstance(self.net,NetworkBehavior)):
             raise Exception('Invalid network type')
@@ -46,8 +50,7 @@ class NetworkInterface:
             self.net.use_data_parallel=True
         self.net.init_settings()
         self.save_name=save_name
-        # Use CACHE_DATA_PATH if load_path is 'cache_data', otherwise use WORKING_PATH
-        self.base_path = CACHE_DATA_PATH if load_path == 'cache_data' else os.path.join(WORKING_PATH, load_path)
+        self.base_path = str(CHECKPOINT_DIR)
         save_path=os.path.join(self.base_path,'%s.sdict'%save_name)
         cp_save_path=os.path.join(self.base_path,'%s.cp.sdict'%save_name)
         self.finalized=False
@@ -58,7 +61,7 @@ class NetworkInterface:
             # Upstream silently kept the random initial weights here.
             raise FileNotFoundError('checkpoint not found: %s'%save_path)
         if(os.path.exists(save_path)):
-            state_dict=torch.load(save_path,map_location=self.net.device)
+            state_dict=torch.load(save_path,map_location=self.net.device,weights_only=True)
             # The following codes are for torch 4.0 compatibility
             # new_state_dict={}
             # for key in state_dict['net']:
@@ -74,7 +77,7 @@ class NetworkInterface:
                 pass
             self.finalized=True
         elif(load_checkpoint and os.path.exists(cp_save_path)):
-            state_dict=torch.load(cp_save_path,map_location=self.net.device)
+            state_dict=torch.load(cp_save_path,map_location=self.net.device,weights_only=True)
             # The following codes are for torch 4.0 compatibility
             # new_state_dict={}
             # for key in state_dict['net']:

@@ -44,18 +44,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-# Bumped from >=3.8 (see CHANGELOG): torch>=2.13.0 itself only ships
-# cp310+ wheels, so >=3.8 became factually false the moment the mandated
-# torch floor bump landed -- this is a forced consequence of the floor
-# refresh, not an independent scope decision.
+# Bumped from >=3.8 upstream (see CHANGELOG) along with a torch>=2.13 floor;
+# the rrherr fork lowered torch to >=2.4 but keeps 3.10 (numpy>=2.2.6 needs it).
 requires-python = ">=3.10"
 dependencies = [
     "tomli>=2.0.1; python_version < '3.11'",
-    "torch>=2.13.0",
-    "pretty_midi>=0.2.9",
-    "h5py>=3.16.0",
-    "pydub>=0.23.1",
-    "joblib>=1.5.3",
+    # rrherr fork: tested on 2.4.1 (the floor) and the locked release.
+    "torch>=2.4",
     "librosa>=0.11.0",
     # numpy>=2.3 requires Python>=3.11 and numpy>=2.5 requires Python>=3.12;
     # 2.2.6 is the newest 2.x release that still supports the Python 3.10

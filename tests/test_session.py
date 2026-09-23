@@ -187,7 +187,7 @@ def test_checkpoints_are_package_data_and_a_missing_one_raises():
     import importlib
 
     from lv_chordia.chordnet_ismir_naive import ChordNet
-    from lv_chordia.mir.nn.network import NetworkInterface
+    from lv_chordia.network import NetworkInterface
 
     config = importlib.import_module("lv_chordia.config")
     package_dir = Path(importlib.import_module("lv_chordia").__file__).parent
@@ -196,4 +196,4 @@ def test_checkpoints_are_package_data_and_a_missing_one_raises():
     assert all(entry["cached"] for entry in entries)
 
     with pytest.raises(FileNotFoundError, match="no-such-checkpoint"):
-        NetworkInterface(ChordNet(None, use_gpu=False), "no-such-checkpoint")
+        NetworkInterface(ChordNet(use_gpu=False), "no-such-checkpoint")

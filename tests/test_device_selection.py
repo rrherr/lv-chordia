@@ -6,7 +6,7 @@ import torch
 
 from lv_chordia.chordnet_ismir_naive import ChordNet
 from lv_chordia.device_utils import resolve_device, resolve_use_gpu
-from lv_chordia.mir.nn.network import NetworkBehavior
+from lv_chordia.network import NetworkBehavior
 
 
 def test_device_none_defers_to_auto_detect():
@@ -113,13 +113,13 @@ def test_chordnet_threads_use_gpu_override_through_to_networkbehavior(monkeypatc
     # the override reaches NetworkBehavior.use_gpu through ChordNet's
     # constructor, not just directly on NetworkBehavior.
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
-    net = ChordNet(None, use_gpu=False)
+    net = ChordNet(use_gpu=False)
     assert net.use_gpu is False
 
 
 def test_chordnet_default_still_auto_detects(monkeypatch):
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 0)
-    assert ChordNet(None).use_gpu is False
+    assert ChordNet().use_gpu is False
 
 
 def test_cuda_index_reaches_chordnet_construction(monkeypatch):
@@ -131,7 +131,7 @@ def test_cuda_index_reaches_chordnet_construction(monkeypatch):
     captured = {}
 
     class FakeChordNet:
-        def __init__(self, _counter, *, use_gpu, device):
+        def __init__(self, *, use_gpu, device):
             captured["use_gpu"] = use_gpu
             captured["device"] = device
 

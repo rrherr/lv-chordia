@@ -4,7 +4,7 @@ The inference pipeline: audio in, time-aligned chord JSON out.
 This is the one real entry point of the package (cli.py just wraps it;
 session.py holds a preloaded ensemble across calls). The pipeline runs a
 5-model ensemble (ChordNet, defined in chordnet_ismir_naive.py) over CQT
-features (cqt()) loaded via mir.nn.network.NetworkInterface,
+features (cqt()) loaded via network.NetworkInterface,
 averages the ensemble's per-frame probabilities, and decodes them into chord
 segments with an HMM (extractors/xhmm_ismir.py) driven by a chosen chord
 dictionary (lv_chordia/data/*_chord_list.txt). Split into load_ensemble()
@@ -15,11 +15,11 @@ and chord_recognition() composes it with load_ensemble() for one-shot callers. A
 any change here must keep tests/test_chord_recognition_regression.py passing
 byte-for-byte.
 
-Reads: chordnet_ismir_naive.py, mir/nn/network.py, extractors/xhmm_ismir.py, settings.py, device_utils.py
+Reads: chordnet_ismir_naive.py, network.py, extractors/xhmm_ismir.py, settings.py, device_utils.py
 """
 
 from .chordnet_ismir_naive import ChordNet
-from .mir.nn.network import NetworkInterface
+from .network import NetworkInterface
 from .extractors.xhmm_ismir import XHMMDecoder
 import numpy as np
 import librosa
@@ -63,7 +63,7 @@ def load_ensemble(use_gpu: Optional[bool] = None, *, device=None) -> List[Networ
         The five loaded NetworkInterface ensemble members, in MODEL_NAMES order.
     """
     return [
-        NetworkInterface(ChordNet(None, use_gpu=use_gpu, device=device), model_name, load_checkpoint=False)
+        NetworkInterface(ChordNet(use_gpu=use_gpu, device=device), model_name, load_checkpoint=False)
         for model_name in MODEL_NAMES
     ]
 
